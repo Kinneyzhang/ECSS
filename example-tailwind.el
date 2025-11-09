@@ -189,7 +189,7 @@
 
 ;;; Example 8: 实际应用场景 / Real-world use case
 
-(message "\n=== 示例 8: 实际应用场景 - 构建响应式导航栏 ===\n")
+(message "\n\n=== 示例 8: 实际应用场景 - 构建响应式导航栏 ===\n")
 
 ;; 创建一个响应式导航栏的DOM结构
 (let ((nav-dom '(nav ((id . "main-nav"))
@@ -223,6 +223,85 @@
       (let* ((attrs (dom-attributes link))
              (class-attr (cdr (assq 'class attrs))))
         (message "  更新链接类: %s" class-attr)))))
+
+;;; Example 9: 将Tailwind类转换为CSS
+
+(message "\n\n=== 示例 9: 将Tailwind类转换为原生CSS ===\n")
+
+;; 转换单个Tailwind类
+(message "转换单个Tailwind类:")
+(let ((css (ecss-tailwind-to-css "bg-red-500")))
+  (message "  'bg-red-500' => %S" css))
+
+(let ((css (ecss-tailwind-to-css "text-lg")))
+  (message "  'text-lg' => %S" css))
+
+(let ((css (ecss-tailwind-to-css "p-4")))
+  (message "  'p-4' => %S" css))
+
+(let ((css (ecss-tailwind-to-css "flex")))
+  (message "  'flex' => %S" css))
+
+;; 转换多个Tailwind类
+(message "\n转换多个Tailwind类:")
+(let ((css (ecss-tailwind-classes-to-css "flex items-center justify-center")))
+  (message "  'flex items-center justify-center'")
+  (message "  => %S" css))
+
+(let ((css (ecss-tailwind-classes-to-css "bg-white rounded-lg shadow-md p-6")))
+  (message "  'bg-white rounded-lg shadow-md p-6'")
+  (message "  => %S" css))
+
+;; 转换为CSS字符串
+(message "\n转换为CSS字符串:")
+(let* ((css (ecss-tailwind-classes-to-css "flex items-center bg-blue-500 text-white p-4 rounded"))
+       (css-string (ecss-tailwind-css-to-string css)))
+  (message "  Classes: 'flex items-center bg-blue-500 text-white p-4 rounded'")
+  (message "  CSS: %s" css-string))
+
+;; 直接应用CSS到DOM节点
+(message "\n直接应用CSS到DOM节点:")
+(let ((button '(button ((class . "btn")))))
+  (message "  原始节点: %S" button)
+  
+  ;; 将Tailwind类转换为CSS并应用
+  (ecss-tailwind-apply-css-to-node button "bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600")
+  
+  (let* ((attrs (dom-attributes button))
+         (style (cdr (assq 'style attrs))))
+    (message "  应用Tailwind CSS后的style属性:")
+    (message "    %s" style)))
+
+;; 实际应用：创建按钮组件
+(message "\n实际应用 - 创建按钮组件:")
+(defun create-button (text classes)
+  "创建一个按钮，将Tailwind类转换为内联样式"
+  (let ((button `(button nil ,text)))
+    (ecss-tailwind-apply-css-to-node button classes)
+    button))
+
+(let ((primary-btn (create-button "Primary" "bg-blue-500 text-white px-4 py-2 rounded font-semibold hover:bg-blue-600"))
+      (secondary-btn (create-button "Secondary" "bg-gray-200 text-gray-800 px-4 py-2 rounded font-semibold hover:bg-gray-300")))
+  (message "  主按钮: %S" primary-btn)
+  (message "  次按钮: %S" secondary-btn))
+
+;; 颜色转换示例
+(message "\n颜色转换:")
+(dolist (class '("bg-red-500" "bg-blue-600" "bg-green-500" "bg-yellow-400" "bg-purple-600"))
+  (let ((css (ecss-tailwind-to-css class)))
+    (message "  %s => %s" class (cdr (car css)))))
+
+;; 间距转换示例
+(message "\n间距转换:")
+(dolist (class '("p-4" "px-8" "py-2" "m-4" "mx-auto"))
+  (let ((css (ecss-tailwind-to-css class)))
+    (message "  %s => %S" class css)))
+
+;; 任意值转换
+(message "\n任意值转换:")
+(dolist (class '("bg-[#1da1f2]" "text-[14px]" "w-[calc(100%-2rem)]"))
+  (let ((css (ecss-tailwind-to-css class)))
+    (message "  %s => %S" class css)))
 
 (message "\n\n=== 所有示例完成 ===\n")
 

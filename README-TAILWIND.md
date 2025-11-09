@@ -1,6 +1,6 @@
 # ECSS Tailwind CSS Support
 
-ECSS 现在支持 Tailwind CSS 实用类的解析和操作！
+ECSS 现在支持 Tailwind CSS 实用类的解析和操作，以及**转换为原生CSS样式**！
 
 ## 功能特性 / Features
 
@@ -12,6 +12,9 @@ ECSS 现在支持 Tailwind CSS 实用类的解析和操作！
 - ✅ 在 DOM 树中查询 Tailwind 类
 - ✅ 操作 DOM 节点的 Tailwind 类
 - ✅ 按属性获取和过滤 Tailwind 类
+- ✅ **将 Tailwind 类转换为原生 CSS 样式** 🆕
+- ✅ **支持颜色、间距、尺寸、字体等所有常用属性转换** 🆕
+- ✅ **直接将 CSS 应用到 DOM 节点** 🆕
 
 ## 安装 / Installation
 
@@ -155,6 +158,41 @@ ECSS 现在支持 Tailwind CSS 实用类的解析和操作！
 ;; => ("bg-red-500" "hover:bg-red-600")
 ```
 
+### 8. 将 Tailwind 类转换为原生 CSS 🆕
+
+```elisp
+;; 转换单个 Tailwind 类
+(ecss-tailwind-to-css "bg-red-500")
+;; => ((background-color . "#ef4444"))
+
+(ecss-tailwind-to-css "text-lg")
+;; => ((font-size . "1.125rem") (line-height . "1.75rem"))
+
+(ecss-tailwind-to-css "p-4")
+;; => ((padding . "1rem"))
+
+(ecss-tailwind-to-css "flex")
+;; => ((display . "flex"))
+
+;; 转换多个 Tailwind 类
+(ecss-tailwind-classes-to-css "flex items-center bg-blue-500 text-white p-4 rounded")
+;; => ((display . "flex") 
+;;     (align-items . "center")
+;;     (background-color . "#3b82f6")
+;;     (color . "#ffffff")
+;;     (padding . "1rem")
+;;     (border-radius . "0.25rem"))
+
+;; 转换为 CSS 字符串
+(ecss-tailwind-css-to-string 
+  (ecss-tailwind-classes-to-css "flex items-center bg-blue-500 p-4"))
+;; => "display: flex; align-items: center; background-color: #3b82f6; padding: 1rem"
+
+;; 直接应用到 DOM 节点
+(ecss-tailwind-apply-css-to-node node "bg-red-500 text-white p-4 rounded-lg")
+;; 这会将 Tailwind 类转换为 CSS 并添加到节点的 style 属性
+```
+
 ## 支持的 Tailwind 特性
 
 ### 响应式前缀
@@ -189,6 +227,55 @@ ECSS 现在支持 Tailwind CSS 实用类的解析和操作！
 - `bg-[#1da1f2]` - 自定义颜色
 - `text-[14px]` - 自定义大小
 - `w-[calc(100%-2rem)]` - 自定义计算值
+
+### CSS 转换支持 🆕
+支持将以下 Tailwind 类转换为原生 CSS：
+
+**布局（Layout）**
+- Display: `block`, `inline`, `flex`, `grid`, `hidden`, etc.
+- Position: `static`, `fixed`, `absolute`, `relative`, `sticky`
+- Visibility: `visible`, `invisible`
+
+**颜色（Colors）**
+- 背景色: `bg-red-500`, `bg-blue-600`, etc.
+- 文字色: `text-gray-900`, `text-white`, etc.
+- 边框色: `border-red-500`, etc.
+- 支持完整的 Tailwind 颜色调色板（slate, gray, red, orange, yellow, green, blue, indigo, purple, pink）
+
+**间距（Spacing）**
+- Padding: `p-4`, `px-8`, `py-2`, `pt-4`, `pr-2`, etc.
+- Margin: `m-4`, `mx-auto`, `my-8`, `mt-2`, etc.
+- Gap: `gap-4`, `gap-x-2`, etc.
+- 完整的间距比例尺（0-96）
+
+**尺寸（Sizing）**
+- Width: `w-64`, `w-full`, `w-screen`, `w-1/2`, etc.
+- Height: `h-32`, `h-full`, `h-screen`, etc.
+- Min/Max: `min-w-0`, `max-h-screen`, etc.
+
+**字体（Typography）**
+- 字体大小: `text-xs`, `text-lg`, `text-2xl`, etc.（包含行高）
+- 字体粗细: `font-thin`, `font-bold`, `font-black`, etc.
+- 文字对齐: `text-left`, `text-center`, `text-right`, etc.
+
+**边框（Borders）**
+- 圆角: `rounded`, `rounded-lg`, `rounded-full`, etc.
+- 边框宽度: `border`, `border-2`, `border-4`, etc.
+
+**效果（Effects）**
+- 阴影: `shadow`, `shadow-md`, `shadow-lg`, etc.
+- 透明度: `opacity-50`, `opacity-75`, etc.
+
+**Flexbox**
+- Justify: `justify-start`, `justify-center`, `justify-between`, etc.
+- Align: `items-start`, `items-center`, `items-stretch`, etc.
+- Flex: `flex-1`, `flex-auto`, `flex-none`, etc.
+
+**其他**
+- Z-index: `z-0`, `z-10`, `z-50`, etc.
+
+所有转换都遵循 Tailwind CSS 的默认配置和值。
+
 
 ## 实际应用示例
 
@@ -254,6 +341,12 @@ ECSS 现在支持 Tailwind CSS 实用类的解析和操作！
 - `ecss-tailwind-get-classes-by-property` - 按属性获取类
 - `ecss-tailwind-filter-classes` - 过滤类
 - `ecss-tailwind-describe-class` - 描述类
+
+### CSS 转换函数 🆕
+- `ecss-tailwind-to-css` - 将单个 Tailwind 类转换为 CSS
+- `ecss-tailwind-classes-to-css` - 将多个 Tailwind 类转换为 CSS
+- `ecss-tailwind-css-to-string` - 将 CSS 属性转换为字符串
+- `ecss-tailwind-apply-css-to-node` - 将 Tailwind 类转换为 CSS 并应用到 DOM 节点
 
 ## 测试
 

@@ -238,6 +238,155 @@
   
   (message "\n✓ Description tests completed!\n"))
 
+(defun test-tailwind-css-conversion ()
+  "Test Tailwind to CSS conversion."
+  (message "\n=== Testing Tailwind to CSS Conversion ===\n")
+  
+  ;; Test display utilities
+  (let ((css (ecss-tailwind-to-css "flex")))
+    (message "Convert 'flex': %S" css)
+    (cl-assert (equal css '((display . "flex")))))
+  
+  (let ((css (ecss-tailwind-to-css "hidden")))
+    (message "Convert 'hidden': %S" css)
+    (cl-assert (equal css '((display . "none")))))
+  
+  ;; Test background color
+  (let ((css (ecss-tailwind-to-css "bg-red-500")))
+    (message "Convert 'bg-red-500': %S" css)
+    (cl-assert (equal css '((background-color . "#ef4444")))))
+  
+  (let ((css (ecss-tailwind-to-css "bg-blue-600")))
+    (message "Convert 'bg-blue-600': %S" css)
+    (cl-assert (equal css '((background-color . "#2563eb")))))
+  
+  ;; Test text color
+  (let ((css (ecss-tailwind-to-css "text-gray-900")))
+    (message "Convert 'text-gray-900': %S" css)
+    (cl-assert (equal css '((color . "#111827")))))
+  
+  ;; Test font size
+  (let ((css (ecss-tailwind-to-css "text-lg")))
+    (message "Convert 'text-lg': %S" css)
+    (cl-assert (equal (car css) '(font-size . "1.125rem")))
+    (cl-assert (equal (cadr css) '(line-height . "1.75rem"))))
+  
+  ;; Test padding
+  (let ((css (ecss-tailwind-to-css "p-4")))
+    (message "Convert 'p-4': %S" css)
+    (cl-assert (equal css '((padding . "1rem")))))
+  
+  (let ((css (ecss-tailwind-to-css "px-8")))
+    (message "Convert 'px-8': %S" css)
+    (cl-assert (member '(padding-left . "2rem") css))
+    (cl-assert (member '(padding-right . "2rem") css)))
+  
+  ;; Test margin
+  (let ((css (ecss-tailwind-to-css "m-2")))
+    (message "Convert 'm-2': %S" css)
+    (cl-assert (equal css '((margin . "0.5rem")))))
+  
+  ;; Test width/height
+  (let ((css (ecss-tailwind-to-css "w-64")))
+    (message "Convert 'w-64': %S" css)
+    (cl-assert (equal css '((width . "16rem")))))
+  
+  (let ((css (ecss-tailwind-to-css "h-full")))
+    (message "Convert 'h-full': %S" css)
+    (cl-assert (equal css '((height . "100%")))))
+  
+  ;; Test font weight
+  (let ((css (ecss-tailwind-to-css "font-bold")))
+    (message "Convert 'font-bold': %S" css)
+    (cl-assert (equal css '((font-weight . "700")))))
+  
+  ;; Test border-radius
+  (let ((css (ecss-tailwind-to-css "rounded-lg")))
+    (message "Convert 'rounded-lg': %S" css)
+    (cl-assert (equal css '((border-radius . "0.5rem")))))
+  
+  ;; Test shadow
+  (let ((css (ecss-tailwind-to-css "shadow-md")))
+    (message "Convert 'shadow-md': %S" css)
+    (cl-assert (assoc 'box-shadow css)))
+  
+  ;; Test arbitrary values
+  (let ((css (ecss-tailwind-to-css "bg-[#1da1f2]")))
+    (message "Convert 'bg-[#1da1f2]': %S" css)
+    (cl-assert (equal css '((background-color . "#1da1f2")))))
+  
+  (let ((css (ecss-tailwind-to-css "text-[14px]")))
+    (message "Convert 'text-[14px]': %S" css)
+    (cl-assert (equal css '((color . "14px")))))
+  
+  ;; Test flex properties
+  (let ((css (ecss-tailwind-to-css "justify-center")))
+    (message "Convert 'justify-center': %S" css)
+    (cl-assert (equal css '((justify-content . "center")))))
+  
+  (let ((css (ecss-tailwind-to-css "items-center")))
+    (message "Convert 'items-center': %S" css)
+    (cl-assert (equal css '((align-items . "center")))))
+  
+  (message "\n✓ All CSS conversion tests passed!\n"))
+
+(defun test-tailwind-multiple-classes-to-css ()
+  "Test converting multiple Tailwind classes to CSS."
+  (message "\n=== Testing Multiple Classes to CSS ===\n")
+  
+  ;; Test simple combination
+  (let ((css (ecss-tailwind-classes-to-css "flex items-center")))
+    (message "Convert 'flex items-center': %S" css)
+    (cl-assert (member '(display . "flex") css))
+    (cl-assert (member '(align-items . "center") css)))
+  
+  ;; Test complex combination
+  (let ((css (ecss-tailwind-classes-to-css "flex items-center justify-between bg-white p-4 rounded-lg shadow-md")))
+    (message "Convert complex classes: %S" css)
+    (cl-assert (member '(display . "flex") css))
+    (cl-assert (member '(align-items . "center") css))
+    (cl-assert (member '(justify-content . "space-between") css))
+    (cl-assert (member '(background-color . "#ffffff") css))
+    (cl-assert (member '(padding . "1rem") css))
+    (cl-assert (member '(border-radius . "0.5rem") css))
+    (cl-assert (assoc 'box-shadow css)))
+  
+  ;; Test with list input
+  (let ((css (ecss-tailwind-classes-to-css '("bg-red-500" "text-white" "p-2"))))
+    (message "Convert list of classes: %S" css)
+    (cl-assert (member '(background-color . "#ef4444") css))
+    (cl-assert (member '(color . "#ffffff") css))
+    (cl-assert (member '(padding . "0.5rem") css)))
+  
+  ;; Test CSS string output
+  (let ((css-string (ecss-tailwind-css-to-string '((display . "flex") (padding . "1rem")))))
+    (message "CSS string: %s" css-string)
+    (cl-assert (string-match-p "display: flex" css-string))
+    (cl-assert (string-match-p "padding: 1rem" css-string)))
+  
+  (message "\n✓ All multiple classes tests passed!\n"))
+
+(defun test-tailwind-apply-css-to-dom ()
+  "Test applying Tailwind CSS to DOM nodes."
+  (message "\n=== Testing Apply CSS to DOM ===\n")
+  
+  ;; Create a test node
+  (let ((node '(div ((class . "container")))))
+    
+    ;; Apply Tailwind classes as CSS
+    (ecss-tailwind-apply-css-to-node node "flex items-center bg-blue-500 p-4")
+    
+    ;; Check that style attribute was added
+    (let* ((attrs (dom-attributes node))
+           (style-attr (cdr (assq 'style attrs))))
+      (message "Applied styles: %s" style-attr)
+      (cl-assert (not (null style-attr)))
+      (cl-assert (string-match-p "display.*flex" style-attr))
+      (cl-assert (string-match-p "padding.*1rem" style-attr))
+      (message "✓ Styles applied successfully")))
+  
+  (message "\n✓ All apply CSS tests passed!\n"))
+
 ;;; Run all tests
 
 (defun run-all-tailwind-tests ()
@@ -254,6 +403,9 @@
   (test-tailwind-class-manipulation)
   (test-tailwind-get-classes-by-property)
   (test-tailwind-describe)
+  (test-tailwind-css-conversion)
+  (test-tailwind-multiple-classes-to-css)
+  (test-tailwind-apply-css-to-dom)
   
   (message "\n========================================")
   (message "✓✓✓ ALL TESTS PASSED! ✓✓✓")
