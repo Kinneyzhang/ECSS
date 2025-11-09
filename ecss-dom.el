@@ -224,10 +224,10 @@ DOM是要遍历的DOM节点，FUNC是对每个节点调用的函数。"
 (defun ecss-dom-node-matches-selector-part (node selector-nodes)
   "检查DOM节点是否匹配选择器节点列表SELECTOR-NODES。"
   (let ((matches t)
-        (mock-selector (css-make-selector)))
+        (mock-selector (ecss-make-selector)))
     ;; 创建一个临时选择器节点来包含这些节点
     (dolist (sel-node selector-nodes)
-      (css-node-append mock-selector sel-node))
+      (ecss-node-append mock-selector sel-node))
     (ecss-dom-node-matches-simple-selector node mock-selector)))
 
 ;;; 组合器匹配
@@ -351,7 +351,7 @@ DOM是要查询的DOM树，SELECTOR-STRING是CSS选择器字符串。
 
 示例：
   (ecss-dom-query-selector-all dom \"div.container p.text\")"
-  (let* ((ast (css-selector-parse selector-string))
+  (let* ((ast (ecss-selector-parse selector-string))
          (root (plist-get ast :type))
          (results '()))
     ;; 处理根节点中的所有选择器（逗号分隔）
