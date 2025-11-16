@@ -260,17 +260,78 @@ DOM是要遍历的DOM节点，FUNC是对每个节点调用的函数。"
      dom)
     found))
 
+(defun ecss-dom-get-previous-sibling (node dom)
+  "获取节点NODE的前一个兄弟元素节点（跳过文本节点）。
+返回前一个兄弟节点，如果没有则返回nil。"
+  (let ((parent nil)
+        (found-parent nil))
+    ;; 首先找到包含node的父节点
+    (ecss-dom-walk
+     (lambda (candidate)
+       (when (not found-parent)
+         (let ((children (dom-children candidate)))
+           (when (and (listp children) (memq node children))
+             (setq parent candidate)
+             (setq found-parent t)))))
+     dom)
+    ;; 如果找到父节点，获取node的前一个非文本兄弟节点
+    (when parent
+      (let ((children (dom-children parent))
+            (prev-sibling nil)
+            (found-node nil))
+        (dolist (child children)
+          (cond
+           ((eq child node)
+            (setq found-node t))
+           ((and (not found-node) (listp child))
+            ;; 这是node之前的一个元素节点
+            (setq prev-sibling child))))
+        prev-sibling))))
+
+(defun ecss-dom-get-previous-siblings (node dom)
+  "获取节点NODE之前的所有兄弟元素节点（跳过文本节点）。
+返回兄弟节点列表，按文档顺序（最早的在前）。"
+  (let ((parent nil)
+        (found-parent nil))
+    ;; 首先找到包含node的父节点
+    (ecss-dom-walk
+     (lambda (candidate)
+       (when (not found-parent)
+         (let ((children (dom-children candidate)))
+           (when (and (listp children) (memq node children))
+             (setq parent candidate)
+             (setq found-parent t)))))
+     dom)
+    ;; 如果找到父节点，获取node之前的所有非文本兄弟节点
+    (when parent
+      (let ((children (dom-children parent))
+            (prev-siblings '())
+            (found-node nil))
+        (dolist (child children)
+          (cond
+           ((eq child node)
+            (setq found-node t))
+           ((and (not found-node) (listp child))
+            ;; 这是node之前的一个元素节点
+            (push child prev-siblings))))
+        (nreverse prev-siblings)))))
+
 (defun ecss-dom-matches-adjacent-sibling-combinator
     (node prev-sibling-nodes dom)
   "检查节点NODE的前一个兄弟节点是否匹配PREV-SIBLING-NODES（相邻兄弟组合器）。"
-  ;; 简化实现
-  t)
+  (let ((prev-sibling (ecss-dom-get-previous-sibling node dom)))
+    (and prev-sibling
+         (ecss-dom-node-matches-selector-part prev-sibling prev-sibling-nodes))))
 
 (defun ecss-dom-matches-general-sibling-combinator
     (node sibling-nodes dom)
   "检查节点NODE之前的兄弟节点中是否有匹配SIBLING-NODES（通用兄弟组合器）。"
-  ;; 简化实现
-  t)
+  (let ((prev-siblings (ecss-dom-get-previous-siblings node dom))
+        (found nil))
+    (dolist (sibling prev-siblings)
+      (when (ecss-dom-node-matches-selector-part sibling sibling-nodes)
+        (setq found t)))
+    found))
 
 (defun ecss-dom-is-descendant-of (node ancestor dom)
   "检查NODE是否是ANCESTOR的后代。"
@@ -297,26 +358,28 @@ DOM是要遍历的DOM节点，FUNC是对每个节点调用的函数。"
                        dom)
       ;; 复杂选择器，有组合器
       ;; 从右到左匹配
-      (let ((rightmost-part (car (last parts)))
-            (preceding-parts (butlast parts)))
+      (let* ((rightmost-part (car (last parts)))
+             (preceding-parts (butlast parts))
+             (rightmost-combinator (cdr rightmost-part)))
         ;; 首先找到匹配最右侧选择器的节点
         (ecss-dom-walk (lambda (node)
                          (when (ecss-dom-node-matches-selector-part
                                 node (car rightmost-part))
                            ;; 检查是否满足所有组合器关系
                            (when (ecss-dom-check-combinator-chain
-                                  node preceding-parts dom)
+                                  node preceding-parts rightmost-combinator dom)
                              (push node results))))
                        dom)))
     (nreverse results)))
 
-(defun ecss-dom-check-combinator-chain (node parts dom)
-  "检查节点是否满足组合器链的所有条件，从右到左处理PARTS。"
+(defun ecss-dom-check-combinator-chain (node parts rightmost-combinator dom)
+  "检查节点是否满足组合器链的所有条件，从右到左处理PARTS。
+RIGHTMOST-COMBINATOR是连接node到前一个部分的组合器。"
   (if (null parts)
       t
     (let* ((current-part (car (last parts)))
            (remaining-parts (butlast parts))
-           (combinator (cdr current-part))
+           (combinator (or rightmost-combinator (cdr current-part)))
            (selector-nodes (car current-part)))
       (cond
        ;; 后代组合器（空格）
