@@ -590,10 +590,12 @@ CSS是输入字符串，START是单词的起始位置。
         ;; 检查操作符
         (when (< pos len)
           (let ((token (nth pos attr-tokens)))
-            (when (memq (aref token 0)
-                        (mapcar (lambda (type)
-                                  (cdr (assq type ecss-token-types)))
-                                '(equals caret dollar asterisk tilde pipe)))
+            (when (or (memq (aref token 0)
+                            (mapcar (lambda (type)
+                                      (cdr (assq type ecss-token-types)))
+                                    '(equals caret dollar asterisk tilde pipe)))
+                      ;; 也检查combinator类型，因为~和|可能被tokenize为combinator
+                      (= (aref token 0) (cdr (assq 'combinator ecss-token-types))))
               (let ((op-content (ecss-parser-content parser token)))
                 ;; 检查是否有后续的等号
                 (when (and (< (1+ pos) len)
