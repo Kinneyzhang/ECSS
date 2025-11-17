@@ -247,11 +247,9 @@
   "检查DOM节点是否有指定的Tailwind类。
 支持精确匹配和模式匹配。"
   (when (and node (listp node))
-    (let* ((attrs (dom-attributes node))
-           (class-attr (cdr (assq 'class attrs))))
-      (when class-attr
-        (let ((classes (split-string class-attr)))
-          (member class-name classes))))))
+    (when-let ((class-attr (dom-attr node 'class)))
+      (let ((classes (split-string class-attr)))
+        (member class-name classes)))))
 
 (defun ecss-dom-query-tailwind (dom tailwind-class)
   "在DOM树中查询所有具有指定Tailwind类的节点。
@@ -261,13 +259,9 @@ TAILWIND-CLASS是要查询的Tailwind类名。
   (ecss-dom-query-tailwind dom \"flex\")
   (ecss-dom-query-tailwind dom \"bg-red-500\")
   (ecss-dom-query-tailwind dom \"md:hover:text-lg\")"
-  (let ((results '()))
-    (ecss-dom-walk
-     (lambda (node)
-       (when (ecss-dom-node-has-tailwind-class-p node tailwind-class)
-         (push node results)))
-     dom)
-    (nreverse results)))
+  (dom-search dom
+              (lambda (node)
+                (ecss-dom-node-has-tailwind-class-p node tailwind-class))))
 
 (defun ecss-dom-query-tailwind-pattern (dom pattern)
   "在DOM树中查询匹配Tailwind模式的节点。
@@ -279,21 +273,15 @@ PATTERN可以是：
 示例：
   (ecss-dom-query-tailwind-pattern dom \"^bg-\")  ; 所有背景类
   (ecss-dom-query-tailwind-pattern dom \"^hover:\") ; 所有hover类"
-  (let ((results '())
-        (regexp (if (stringp pattern) pattern (regexp-quote pattern))))
-    (ecss-dom-walk
-     (lambda (node)
-       (when (and node (listp node))
-         (let* ((attrs (dom-attributes node))
-                (class-attr (cdr (assq 'class attrs))))
-           (when class-attr
-             (let ((classes (split-string class-attr)))
-               (when (cl-some (lambda (class)
-                                (string-match-p regexp class))
-                              classes)
-                 (push node results)))))))
-     dom)
-    (nreverse results)))
+  (let ((regexp (if (stringp pattern) pattern (regexp-quote pattern))))
+    (dom-search dom
+                (lambda (node)
+                  (when (and node (listp node))
+                    (when-let ((class-attr (dom-attr node 'class)))
+                      (let ((classes (split-string class-attr)))
+                        (cl-some (lambda (class)
+                                   (string-match-p regexp class))
+                                 classes))))))))
 
 (defun ecss-tailwind-add-class (node class-name)
   "为DOM节点添加Tailwind CSS类。
@@ -322,10 +310,8 @@ PATTERN可以是：
   "获取DOM节点中指定属性的所有Tailwind类。
 例如，获取所有'bg'（背景）类或所有'text'（文本）类。"
   (when (and node (listp node))
-    (let* ((attrs (dom-attributes node))
-           (class-attr (cdr (assq 'class attrs)))
-           (results '()))
-      (when class-attr
+    (let ((results '()))
+      (when-let ((class-attr (dom-attr node 'class)))
         (let ((classes (split-string class-attr)))
           (dolist (class classes)
             (when (ecss-tailwind-class-p class)

@@ -52,27 +52,23 @@
 (defun ecss-dom-node-matches-class (node class-name)
   "检查DOM节点NODE是否匹配类选择器CLASS-NAME。"
   (when (and node (listp node))
-    (let* ((attrs (dom-attributes node))
-           (class-attr (cdr (assq 'class attrs))))
-      (when class-attr
-        (let ((classes (split-string class-attr)))
-          (member class-name classes))))))
+    (when-let ((class-attr (dom-attr node 'class)))
+      (let ((classes (split-string class-attr)))
+        (member class-name classes)))))
 
 (defun ecss-dom-node-matches-id (node id-name)
   "检查DOM节点NODE是否匹配ID选择器ID-NAME。"
   (when (and node (listp node))
-    (let* ((attrs (dom-attributes node))
-           (id-attr (cdr (assq 'id attrs))))
-      (and id-attr (string= id-attr id-name)))))
+    (when-let ((id-attr (dom-attr node 'id)))
+      (string= id-attr id-name))))
 
 (defun ecss-dom-node-matches-attribute (node attr-node)
   "检查DOM节点NODE是否匹配属性选择器ATTR-NODE。"
   (when (and node (listp node))
-    (let* ((attrs (dom-attributes node))
-           (attr-name (intern (plist-get attr-node :attribute)))
+    (let* ((attr-name (intern (plist-get attr-node :attribute)))
            (operator (plist-get attr-node :operator))
            (expected-value (plist-get attr-node :value))
-           (actual-value (cdr (assq attr-name attrs))))
+           (actual-value (dom-attr node attr-name)))
       (cond
        ;; 仅检查属性存在
        ((null operator)
@@ -217,29 +213,13 @@
 (defun ecss-dom-get-parent (node dom)
   "获取节点NODE的父节点。
 返回父节点，如果没有则返回nil。"
-  (let ((parent nil)
-        (found-parent nil))
-    ;; 遍历DOM查找包含node的父节点
-    (ecss-dom-walk
-     (lambda (candidate)
-       (when (not found-parent)
-         (let ((children (dom-children candidate)))
-           (when (and (listp children) (memq node children))
-             (setq parent candidate)
-             (setq found-parent t)))))
-     dom)
-    parent))
+  (dom-parent dom node))
 
 (defun ecss-dom-get-element-children (node)
   "获取节点NODE的所有元素子节点（跳过文本节点）。
 返回子节点列表。"
   (when (and node (listp node))
-    (let ((children (dom-children node))
-          (element-children '()))
-      (dolist (child children)
-        (when (listp child)
-          (push child element-children)))
-      (nreverse element-children))))
+    (dom-non-text-children node)))
 
 (defun ecss-dom-is-first-child (node)
   "检查节点是否是其父节点的第一个子元素。"
@@ -454,87 +434,65 @@ DOM是要遍历的DOM节点，FUNC是对每个节点调用的函数。"
 
 (defun ecss-dom-matches-descendant-combinator (node ancestor-nodes dom)
   "检查节点NODE是否有祖先匹配ANCESTOR-NODES（后代组合器）。"
-  (let ((found nil))
-    (ecss-dom-walk
+  (catch 'found
+    (dom-search
+     dom
      (lambda (candidate)
-       (when (and (not found)
-                  (ecss-dom-node-matches-selector-part
+       (when (and (ecss-dom-node-matches-selector-part
                    candidate ancestor-nodes)
                   (ecss-dom-is-descendant-of node candidate dom))
-         (setq found t)))
-     dom)
-    found))
+         (throw 'found t))))
+    nil))
 
 (defun ecss-dom-matches-child-combinator (node parent-nodes dom)
   "检查节点NODE的直接父节点是否匹配PARENT-NODES（子组合器）。"
   ;; 简化实现：遍历DOM查找包含node作为直接子节点的节点
-  (let ((found nil))
-    (ecss-dom-walk
+  (catch 'found
+    (dom-search
+     dom
      (lambda (candidate)
-       (when (and (not found)
-                  (ecss-dom-node-matches-selector-part
-                   candidate parent-nodes))
+       (when (ecss-dom-node-matches-selector-part
+              candidate parent-nodes)
          (let ((children (dom-non-text-children candidate)))
            (when (memq node children)
-             (setq found t)))))
-     dom)
-    found))
+             (throw 'found t))))))
+    nil))
 
 (defun ecss-dom-get-previous-sibling (node dom)
   "获取节点NODE的前一个兄弟元素节点（跳过文本节点）。
 返回前一个兄弟节点，如果没有则返回nil。"
-  (let ((parent nil)
-        (found-parent nil))
-    ;; 首先找到包含node的父节点
-    (ecss-dom-walk
-     (lambda (candidate)
-       (when (not found-parent)
-         (let ((children (dom-children candidate)))
-           (when (and (listp children) (memq node children))
-             (setq parent candidate)
-             (setq found-parent t)))))
-     dom)
-    ;; 如果找到父节点，获取node的前一个非文本兄弟节点
-    (when parent
-      (let ((children (dom-children parent))
-            (prev-sibling nil)
-            (found-node nil))
-        (dolist (child children)
-          (cond
-           ((eq child node)
-            (setq found-node t))
-           ((and (not found-node) (listp child))
-            ;; 这是node之前的一个元素节点
-            (setq prev-sibling child))))
-        prev-sibling))))
+  ;; 首先找到包含node的父节点
+  (when-let ((parent (dom-parent dom node)))
+    ;; 获取node的前一个非文本兄弟节点
+    (let ((children (dom-children parent))
+          (prev-sibling nil)
+          (found-node nil))
+      (dolist (child children)
+        (cond
+         ((eq child node)
+          (setq found-node t))
+         ((and (not found-node) (listp child))
+          ;; 这是node之前的一个元素节点
+          (setq prev-sibling child))))
+      prev-sibling)))
 
 (defun ecss-dom-get-previous-siblings (node dom)
   "获取节点NODE之前的所有兄弟元素节点（跳过文本节点）。
 返回兄弟节点列表，按文档顺序（最早的在前）。"
-  (let ((parent nil)
-        (found-parent nil))
-    ;; 首先找到包含node的父节点
-    (ecss-dom-walk
-     (lambda (candidate)
-       (when (not found-parent)
-         (let ((children (dom-children candidate)))
-           (when (and (listp children) (memq node children))
-             (setq parent candidate)
-             (setq found-parent t)))))
-     dom)
-    ;; 如果找到父节点，获取node之前的所有非文本兄弟节点
-    (when parent
-      (let ((children (dom-children parent))
-            (prev-siblings '())
-            (found-node nil))
-        (dolist (child children)
-          (cond
-           ((eq child node)
-            (setq found-node t))
-           ((and (not found-node) (listp child))
-            ;; 这是node之前的一个元素节点
-            (push child prev-siblings))))
-        (nreverse prev-siblings)))))
+  ;; 首先找到包含node的父节点
+  (when-let ((parent (dom-parent dom node)))
+    ;; 获取node之前的所有非文本兄弟节点
+    (let ((children (dom-children parent))
+          (prev-siblings '())
+          (found-node nil))
+      (dolist (child children)
+        (cond
+         ((eq child node)
+          (setq found-node t))
+         ((and (not found-node) (listp child))
+          ;; 这是node之前的一个元素节点
+          (push child prev-siblings))))
+      (nreverse prev-siblings))))
 
 (defun ecss-dom-matches-adjacent-sibling-combinator
     (node prev-sibling-nodes dom)
@@ -556,41 +514,34 @@ DOM是要遍历的DOM节点，FUNC是对每个节点调用的函数。"
 (defun ecss-dom-is-descendant-of (node ancestor dom)
   "检查NODE是否是ANCESTOR的后代。"
   (and (not (eq node ancestor))
-       (catch 'found
-         (ecss-dom-walk (lambda (candidate)
-                          (when (eq candidate node)
-                            (throw 'found t)))
-                        ancestor)
-         nil)))
+       (not (null (dom-search ancestor
+                              (lambda (candidate)
+                                (eq candidate node)))))))
 
 ;;; 主要查询函数
 
 (defun ecss-dom-query-selector-complex (dom selector-ast)
   "使用复杂选择器（包含组合器）查询DOM，返回所有匹配的节点列表。"
-  (let ((parts (ecss-dom-split-selector-by-combinators selector-ast))
-        (results '()))
+  (let ((parts (ecss-dom-split-selector-by-combinators selector-ast)))
     (if (= (length parts) 1)
         ;; 简单选择器，无组合器
-        (ecss-dom-walk (lambda (node)
-                         (when (ecss-dom-node-matches-selector-part
-                                node (caar parts))
-                           (push node results)))
-                       dom)
+        (dom-search dom
+                    (lambda (node)
+                      (ecss-dom-node-matches-selector-part
+                       node (caar parts))))
       ;; 复杂选择器，有组合器
       ;; 从右到左匹配
       (let* ((rightmost-part (car (last parts)))
              (preceding-parts (butlast parts))
              (rightmost-combinator (cdr rightmost-part)))
         ;; 首先找到匹配最右侧选择器的节点
-        (ecss-dom-walk (lambda (node)
-                         (when (ecss-dom-node-matches-selector-part
-                                node (car rightmost-part))
+        (dom-search dom
+                    (lambda (node)
+                      (and (ecss-dom-node-matches-selector-part
+                            node (car rightmost-part))
                            ;; 检查是否满足所有组合器关系
-                           (when (ecss-dom-check-combinator-chain
-                                  node preceding-parts rightmost-combinator dom)
-                             (push node results))))
-                       dom)))
-    (nreverse results)))
+                           (ecss-dom-check-combinator-chain
+                            node preceding-parts rightmost-combinator dom))))))))
 
 (defun ecss-dom-check-combinator-chain (node parts rightmost-combinator dom)
   "检查节点是否满足组合器链的所有条件，从右到左处理PARTS。
@@ -661,8 +612,7 @@ DOM是要查询的DOM树，SELECTOR-STRING是CSS选择器字符串。
   "为DOM节点设置CSS样式。NODE是DOM节点，STYLES
 是样式列表 ((property . value) ...)。"
   (when (and node (listp node))
-    (let* ((attrs (dom-attributes node))
-           (style-attr (cdr (assq 'style attrs)))
+    (let* ((style-attr (dom-attr node 'style))
            (style-map (ecss-dom-parse-style-string
                        (or style-attr ""))))
       ;; 合并新样式
@@ -671,16 +621,7 @@ DOM是要查询的DOM树，SELECTOR-STRING是CSS选择器字符串。
                          style-map (car style) (cdr style))))
       ;; 更新style属性
       (let ((new-style-string (ecss-dom-style-map-to-string style-map)))
-        (if attrs
-            (let ((style-assoc (assq 'style attrs)))
-              (if style-assoc
-                  (setcdr style-assoc new-style-string)
-                ;; 如果有属性列表但没有style属性，添加到属性列表
-                (setcdr attrs (cons (cons 'style new-style-string)
-                                    (cdr attrs)))))
-          ;; 如果没有属性，创建属性列表
-          (setcar (cdr node)
-                  (list (cons 'style new-style-string))))))))
+        (dom-set-attribute node 'style new-style-string)))))
 
 (defun ecss-dom-apply-style (dom selector-string styles)
   "为DOM中匹配选择器的节点应用CSS样式。
@@ -725,8 +666,7 @@ STYLES是要应用的样式列表，格式为 ((property . value) ...)。
   "获取DOM节点的指定CSS属性值。
 NODE是DOM节点，PROPERTY是CSS属性名（symbol）。"
   (when (and node (listp node))
-    (let* ((attrs (dom-attributes node))
-           (style-attr (cdr (assq 'style attrs)))
+    (let* ((style-attr (dom-attr node 'style))
            (style-map (ecss-dom-parse-style-string
                        (or style-attr ""))))
       (cdr (assq property style-map)))))
@@ -736,29 +676,21 @@ NODE是DOM节点，PROPERTY是CSS属性名（symbol）。"
 (defun ecss-dom-add-class (node class-name)
   "为DOM节点添加CSS类。"
   (when (and node (listp node))
-    (let* ((attrs (dom-attributes node))
-           (class-attr (cdr (assq 'class attrs)))
+    (let* ((class-attr (dom-attr node 'class))
            (classes (if class-attr (split-string class-attr) '())))
       (unless (member class-name classes)
         (let ((new-class (string-join
                           (append classes (list class-name)) " ")))
-          (if attrs
-              (if (assq 'class attrs)
-                  (setcdr (assq 'class attrs) new-class)
-                (setcdr attrs (cons (cons 'class new-class)
-                                    (cdr attrs))))
-            (setcar (cdr node) (list (cons 'class new-class)))))))))
+          (dom-set-attribute node 'class new-class))))))
 
 (defun ecss-dom-remove-class (node class-name)
   "从DOM节点移除CSS类。"
   (when (and node (listp node))
-    (let* ((attrs (dom-attributes node))
-           (class-attr (cdr (assq 'class attrs)))
+    (let* ((class-attr (dom-attr node 'class))
            (classes (if class-attr (split-string class-attr) '())))
       (when (member class-name classes)
         (let ((new-class (string-join (delete class-name classes) " ")))
-          (when (assq 'class attrs)
-            (setcdr (assq 'class attrs) new-class)))))))
+          (dom-set-attribute node 'class new-class))))))
 
 (defun ecss-dom-has-class (node class-name)
   "检查DOM节点是否有指定的CSS类。"
